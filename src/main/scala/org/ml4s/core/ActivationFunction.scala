@@ -1,13 +1,17 @@
 package org.ml4s.core
 
-trait ActivationFunction extends ((Double) => Double) {
-  def sign: String
-
-  // TODO derivative etc
+trait ActivationFunction {
+  def process(v1: Double): Double
+  def derivative(x: Double): Double
 }
 
 case class SigmoidFunction() extends ActivationFunction {
-  override def apply(v1: Double): Double = ???
 
-  override def sign: String = "s"
+  override def process(x: Double): Double =
+    1d / (1d + scala.math.exp(-x))
+
+  override def derivative(x: Double): Double = {
+    val Fx = process(x)
+    Fx * (1d - Fx)
+  }
 }
