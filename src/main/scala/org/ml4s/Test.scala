@@ -50,7 +50,7 @@ object Test extends App {
 
   println("now training")
   // Train for 30 epochs, with mini-batch size 10, and learning rate 3.0
-  net.sgd(mnist_train, 30, 10, 3.0, Some(mnist_test))
+  net.sgd(mnist_train, 3, 10, 3.0, Some(mnist_test))
 
   println(s"final accuracy: ${100.0 * net.evaluate(mnist_test).toDouble / mnist_test.length.toDouble}%")
 }

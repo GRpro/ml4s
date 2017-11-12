@@ -15,3 +15,9 @@ case class SigmoidFunction() extends ActivationFunction {
     Fx * (1d - Fx)
   }
 }
+
+case class LinearFunction() extends ActivationFunction {
+  override def process(v1: Double) = v1
+
+  override def derivative(x: Double) = 1.0
+}
