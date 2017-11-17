@@ -1,7 +1,6 @@
-package org.ml4s
+package org.ml4s.core
 
 import breeze.linalg.{DenseMatrix, DenseVector}
-import org.ml4s.core.NeuralNetwork
 
 import scala.io.Source
 
@@ -9,7 +8,7 @@ import scala.io.Source
 MNIST handwritten digits dataset
 http://yann.lecun.com/exdb/mnist/
  */
-object Test extends App {
+object ClassificationDemo extends App {
   // Turns an Int digit into a (10,1) DenseMatrix one-hot encoded representation of the label
   def labelToMatrix(label: Int): DenseMatrix[Double] = {
     var onehot = DenseVector.zeros[Double](10)
@@ -33,24 +32,26 @@ object Test extends App {
   *  each represent one pixel from the 28x28 MNIST image. These both get transformed into (n,1) matrices, then put
   *  into a List[Tuple2[]] where the first element of each tuple is an image, and the second element is its label.
   */
-  val mnist = Source.fromFile("src/main/resources/mnist_train.csv")
+
+  val mnist = Source.fromFile("src/test/resources/mnist_train.csv")
     .getLines()
     .drop(1)
     .map { line => mnistDatum(line) }
     .map { datum => (datum.image, datum.label) }.toSeq
 
-  // Test/train split
-  val mnist_train = mnist.dropRight(10000)
-  val mnist_test = mnist.takeRight(10000)
+
+  val Seq(training, testing) = Util.randomSplit(mnist, Seq(0.7, 0.3))
+
+  println(s"training size: ${training.size}")
+  println(s"testing size: ${testing.size}")
 
   /* Initialize 3-layer neural network with 784 input neurons corresponding to te pixel of a MNIST image, a 30-neuron hidden layer,
   *  and 10 output neurons corresponding to the 10 digit labels.
   */
-  val net = NeuralNetwork(List(784, 30, 10))
+  val net = NeuralNetwork.classification(List(784, 30, 10))
 
   println("now training")
-  // Train for 30 epochs, with mini-batch size 10, and learning rate 3.0
-  net.sgd(mnist_train, 3, 10, 3.0, Some(mnist_test))
-
-  println(s"final accuracy: ${100.0 * net.evaluate(mnist_test).toDouble / mnist_test.length.toDouble}%")
+  // Train for 10 epochs, with mini-batch size 10, and learning rate 3.0
+  net.sgd(training, 10, 10, 3.0, Some(testing), Estimator.classificationAccuracy(net))
+//  println(s"final accuracy: ${100.0 * net.evaluate(testing).toDouble / testing.length.toDouble}%")
 }

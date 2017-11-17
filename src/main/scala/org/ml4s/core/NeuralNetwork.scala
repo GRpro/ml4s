@@ -1,6 +1,5 @@
 package org.ml4s.core
 
-import scala.util.Random.shuffle
 import breeze.linalg._
 import breeze.numerics._
 
@@ -8,14 +7,13 @@ class NeuralNetwork(topology: Topology) {
   /* sizes contains the size of each layer of neurons in the network. So, if sizes were Seq(4, 3, 3, 2), the network would
   *  be a 4-layer network with 4 input neurons, two hidden layers of 3 neurons each, and an output layer with 2 neurons.
   */
-  type Datum = (DenseMatrix[Double], DenseMatrix[Double])
 
-  val sizes = topology.layers
+  private val sizes = topology.layers
 
-  val layers = sizes.length
-  val normal = breeze.stats.distributions.Gaussian(0, 1)
-  var biases = for (y <- sizes.drop(1)) yield DenseMatrix.rand(y, 1, normal)
-  var weights = for ((x, y) <- sizes.dropRight(1) zip sizes.drop(1)) yield DenseMatrix.rand(y, x, normal)
+  private val layers = sizes.length
+  private val normal = breeze.stats.distributions.Gaussian(0, 1)
+  private var biases = for (y <- sizes.drop(1)) yield DenseMatrix.rand(y, 1, normal)
+  private var weights = for ((x, y) <- sizes.dropRight(1) zip sizes.drop(1)) yield DenseMatrix.rand(y, x, normal)
 
   // Plug an activation into the network and return the output
   def feedForward(activation: DenseMatrix[Double]) : DenseMatrix[Double] = {
@@ -32,20 +30,22 @@ class NeuralNetwork(topology: Topology) {
   *  and Optional test data are both Seq[Tuple2[]] of DenseMatrix[Doubles], where each tuple is an input / label pair, and the rest
   *  of the arguments do what they say on the tin. If we provide testData, we get an evaluation on our test set printed for each epoch
   */
-  def sgd(trainingData: Seq[Datum], epochs: Int, miniBatchSize: Int, eta: Double, testData: Option[Seq[Datum]]) {
+  def sgd(trainingData: Seq[Datum], epochs: Int, miniBatchSize: Int, eta: Double, testData: Option[Seq[Datum]], estimator: Estimator) {
     val n = trainingData.length
 
     for (i <- 1 to epochs) {
-      val data = shuffle(trainingData)
-      val miniBatches = for (j <- 0 to n - 1 by miniBatchSize) yield trainingData.slice(j, j + miniBatchSize)
+      val miniBatches = for (j <- 0 until n by miniBatchSize) yield trainingData.slice(j, j + miniBatchSize)
 
       miniBatches foreach { miniBatch =>
         updateMiniBatch(miniBatch, eta)
       }
 
       testData match {
-        case Some(data) => println(s"Epoch ${i} complete, with ${evaluate(data)} / ${data.length} correct")
-        case None => println(s"Epoch ${i} complete")
+        case Some(data) =>
+//          println(s"Epoch $i complete, with ${evaluate(data)} / ${data.length} correct")
+          println(s"Epoch $i complete, with $estimator: ${estimator(data)} %")
+        case None =>
+          println(s"Epoch $i complete")
       }
     }
   }
@@ -54,7 +54,7 @@ class NeuralNetwork(topology: Topology) {
   *  of DenseMatrix[Double]s where each Tuple2 is an input / label pair, and eta
   *  is the learning rate.
   */
-  def updateMiniBatch(miniBatch: Seq[Datum], eta: Double) {
+  private def updateMiniBatch(miniBatch: Seq[Datum], eta: Double) {
     var nabla_bias = for (bias <- biases) yield DenseMatrix.zeros[Double](bias.rows, bias.cols)
     var nabla_weight = for (weight <- weights) yield DenseMatrix.zeros[Double](weight.rows, weight.cols)
 
@@ -71,7 +71,7 @@ class NeuralNetwork(topology: Topology) {
   /* Returns the gradient of the cost function as a Tuple2[] of DenseMatrix[Double]s, where nabla_bias
   *  and nabla_weight are both Seq[DenseMatrix[Double]] just like weights and biases
   */
-  def backprop(features: DenseMatrix[Double], result: DenseMatrix[Double]) : (Seq[DenseMatrix[Double]], Seq[DenseMatrix[Double]]) = {
+  private def backprop(features: DenseMatrix[Double], result: DenseMatrix[Double]) : (Seq[DenseMatrix[Double]], Seq[DenseMatrix[Double]]) = {
     var nabla_bias = for (bias <- biases) yield DenseMatrix.zeros[Double](bias.rows, bias.cols)
     var nabla_weight = for (weight <- weights) yield DenseMatrix.zeros[Double](weight.rows, weight.cols)
 
@@ -103,22 +103,24 @@ class NeuralNetwork(topology: Topology) {
     (nabla_bias, nabla_weight)
   }
 
-  /* Returns the number of inputs from test_data for which the network's response is correct.
-  *  The output is calculated as the index of the output neuron with the maximum activation.
-  */
-  def evaluate(test_data: Seq[Datum]) = (for ((input, label) <- test_data if argmax(feedForward(input)) == argmax(label)) yield 1).length
+//  /* Returns the number of inputs from test_data for which the network's response is correct.
+//  *  The output is calculated as the index of the output neuron with the maximum activation.
+//  */
+//  def evaluate(test_data: Seq[Datum]) = (for ((input, label) <- test_data if argmax(feedForward(input)) == argmax(label)) yield 1).length
+
 }
 
 object NeuralNetwork {
-    def apply(x: Seq[Int]) = {
-      val topology = Topology.homogeneous(SigmoidFunction(), x)
-      new NeuralNetwork(topology)
-    }
-}
 
-object NeuralNetworkForRegression {
-  def apply(layers: Seq[Int]) = {
-    val topology = Topology.homogeneousWithSpecificOutput(SigmoidFunction(), LinearFunction(), layers)
+  def classification(layersDef: Seq[Int]): NeuralNetwork = {
+    val topology = Topology.homogeneous(SigmoidFunction(), layersDef)
+    new NeuralNetwork(topology)
+  }
+
+  def regression(inputLayerDef: Int, hiddenLayersDef: Seq[Int]): NeuralNetwork = {
+    val layersDef = inputLayerDef +: hiddenLayersDef :+ 1
+    val topology = Topology.homogeneousWithSpecificOutput(SigmoidFunction(), LinearFunction(), layersDef)
     new NeuralNetwork(topology)
   }
 }
+
